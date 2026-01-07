@@ -7,7 +7,7 @@ def get_font():
     return pygame.font.SysFont("comicsans", 20)
 
 
-def draw_net(win, genome, config=None, pos=(400, 500), input_names=False):
+def draw_net(win, genome, config=None, pos=(400, 500), input_names=None):
     node_position = {}
     start_x, start_y = pos
     layer_width = 150
@@ -15,35 +15,41 @@ def draw_net(win, genome, config=None, pos=(400, 500), input_names=False):
 
     font = get_font()
 
-    # Use passed names:
+    # ---- INPUT LAYER ----
     if input_names is None:
-        input_names = [f"In {i}" for i in range(20)]
+        input_names = [f"In {i}" for i in range(len(config.genome_config.input_keys))]
 
     for i, input_label in enumerate(input_names):
         x = start_x
         y = start_y + (i * node_spacing)
 
-        node_position[-(i + 1)] = (x, y)  # Neat input keys are negative
+        # NEAT input node keys are negative
+        node_key = config.genome_config.input_keys[i]
+        node_position[node_key] = (x, y)
 
-        # Draw
         pygame.draw.circle(win, (200, 200, 200), (x, y), 10)
-
-        # Draw Label (Offset to the left)
-        label = font.render(input_label, 1, (0, 0, 0))
+        label = font.render(input_label, True, (0, 0, 0))
         win.blit(label, (x - 90, y - 10))
 
-    # --- OUTPUT NODE (Layer 1) ---
+    # ---- OUTPUT LAYER (Jump + Duck) ----
     out_x = start_x + layer_width
-    # Center the output node relative to the 3 inputs
-    # (Inputs are at 0, 50, 100 -> Middle is 50)
-    out_y = start_y + 50
-    node_position[0] = (out_x, out_y)
 
-    pygame.draw.circle(win, (200, 200, 200), (out_x, out_y), 10)
-    label = font.render("Jump", 1, (0, 0, 0))
-    win.blit(label, (out_x + 15, out_y - 10))
+    output_labels = ["Jump", "Duck"]
+    output_keys = config.genome_config.output_keys
 
-    # --- CONNECTIONS ---
+    # Center outputs vertically relative to inputs
+    total_h = (len(output_labels) - 1) * node_spacing
+    base_y = start_y + (len(input_names) * node_spacing) // 2 - total_h // 2
+
+    for i, (label_text, key) in enumerate(zip(output_labels, output_keys)):
+        y = base_y + i * node_spacing
+        node_position[key] = (out_x, y)
+
+        pygame.draw.circle(win, (200, 200, 200), (out_x, y), 10)
+        label = font.render(label_text, True, (0, 0, 0))
+        win.blit(label, (out_x + 15, y - 10))
+
+    # ---- CONNECTIONS ----
     for (in_node, out_node), conn in genome.connections.items():
         if not conn.enabled:
             continue
@@ -52,10 +58,7 @@ def draw_net(win, genome, config=None, pos=(400, 500), input_names=False):
             start = node_position[in_node]
             end = node_position[out_node]
 
-            # Green = Excitation (Do it!), Red = Inhibition (Don't do it!)
-            color = (0, 255, 0) if conn.weight > 0 else (255, 0, 0)
-
-            # Thickness based on connection strength (clamped between 1 and 6)
+            color = (0, 200, 0) if conn.weight > 0 else (200, 0, 0)
             width = max(1, min(6, int(abs(conn.weight) * 2)))
 
             pygame.draw.line(win, color, start, end, width)
